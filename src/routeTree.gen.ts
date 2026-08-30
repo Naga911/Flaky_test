@@ -10,11 +10,29 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as ClustersRouteImport } from './routes/clusters'
+import { Route as SettingsRouteImport } from './routes/settings'
+import { Route as AdminModelRouteImport } from './routes/admin/model'
 import { Route as TestsTestIdRouteImport } from './routes/tests.$testId'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ClustersRoute = ClustersRouteImport.update({
+  id: '/clusters',
+  path: '/clusters',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SettingsRoute = SettingsRouteImport.update({
+  id: '/settings',
+  path: '/settings',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AdminModelRoute = AdminModelRouteImport.update({
+  id: '/admin/model',
+  path: '/admin/model',
   getParentRoute: () => rootRouteImport,
 } as any)
 const TestsTestIdRoute = TestsTestIdRouteImport.update({
@@ -25,27 +43,45 @@ const TestsTestIdRoute = TestsTestIdRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/clusters': typeof ClustersRoute
+  '/settings': typeof SettingsRoute
+  '/admin/model': typeof AdminModelRoute
   '/tests/$testId': typeof TestsTestIdRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/clusters': typeof ClustersRoute
+  '/settings': typeof SettingsRoute
+  '/admin/model': typeof AdminModelRoute
   '/tests/$testId': typeof TestsTestIdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/clusters': typeof ClustersRoute
+  '/settings': typeof SettingsRoute
+  '/admin/model': typeof AdminModelRoute
   '/tests/$testId': typeof TestsTestIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/tests/$testId'
+  fullPaths: '/' | '/clusters' | '/settings' | '/admin/model' | '/tests/$testId'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/tests/$testId'
-  id: '__root__' | '/' | '/tests/$testId'
+  to: '/' | '/clusters' | '/settings' | '/admin/model' | '/tests/$testId'
+  id:
+    | '__root__'
+    | '/'
+    | '/clusters'
+    | '/settings'
+    | '/admin/model'
+    | '/tests/$testId'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  ClustersRoute: typeof ClustersRoute
+  SettingsRoute: typeof SettingsRoute
+  AdminModelRoute: typeof AdminModelRoute
   TestsTestIdRoute: typeof TestsTestIdRoute
 }
 
@@ -56,6 +92,27 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/clusters': {
+      id: '/clusters'
+      path: '/clusters'
+      fullPath: '/clusters'
+      preLoaderRoute: typeof ClustersRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/settings': {
+      id: '/settings'
+      path: '/settings'
+      fullPath: '/settings'
+      preLoaderRoute: typeof SettingsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/admin/model': {
+      id: '/admin/model'
+      path: '/admin/model'
+      fullPath: '/admin/model'
+      preLoaderRoute: typeof AdminModelRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/tests/$testId': {
@@ -70,6 +127,9 @@ declare module '@tanstack/react-router' {
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  ClustersRoute: ClustersRoute,
+  SettingsRoute: SettingsRoute,
+  AdminModelRoute: AdminModelRoute,
   TestsTestIdRoute: TestsTestIdRoute,
 }
 export const routeTree = rootRouteImport
