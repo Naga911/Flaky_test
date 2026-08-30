@@ -137,7 +137,7 @@ export const SUMMARY = {
 };
 
 export function runHistory(testId: string): TestRunHistory[] {
-  const envs = ["ci-linux", "staging", "prod-canary", "ci-macos"];
+  const envs: string[] = ["ci-linux", "staging", "prod-canary", "ci-macos"];
   return Array.from({ length: 24 }, (_, i) => {
     const r = seeded(testId.length * 13 + i);
     const failed = r > 0.62;
@@ -146,7 +146,7 @@ export function runHistory(testId: string): TestRunHistory[] {
       timestamp: new Date(Date.UTC(2026, 7, 29) - i * 41e5).toISOString(),
       status: failed ? "fail" : r < 0.06 ? "skip" : "pass",
       durationMs: Math.round(1800 + r * 9000),
-      environment: envs[i % envs.length],
+      environment: envs[i % envs.length] ?? "ci-linux",
       retryCount: failed ? 1 + Math.round(r * 2) : 0,
       ciLink: `https://ci.example.com/builds/${48210 - i}`,
     };
