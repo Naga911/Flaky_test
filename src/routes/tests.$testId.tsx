@@ -284,9 +284,6 @@ function TestDetail() {
         )}
       </Panel>
 
-      <div className="mt-3">
-        <ScoreBar score={test.flakeScore} />
-      </div>
     </AppShell>
   );
 }
