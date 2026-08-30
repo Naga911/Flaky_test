@@ -14,7 +14,341 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      app_settings: {
+        Row: {
+          id: number
+          settings: Json
+          updated_at: string
+        }
+        Insert: {
+          id: number
+          settings?: Json
+          updated_at?: string
+        }
+        Update: {
+          id?: number
+          settings?: Json
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      category_breakdown: {
+        Row: {
+          category: string
+          value: number
+        }
+        Insert: {
+          category: string
+          value: number
+        }
+        Update: {
+          category?: string
+          value?: number
+        }
+        Relationships: []
+      }
+      failure_clusters: {
+        Row: {
+          affected_tests: string[]
+          category: string
+          cluster_id: string
+          first_seen: string
+          last_seen: string
+          occurrences: number
+          representative_error: string
+          suggested_root_cause: string
+        }
+        Insert: {
+          affected_tests?: string[]
+          category?: string
+          cluster_id: string
+          first_seen: string
+          last_seen: string
+          occurrences?: number
+          representative_error: string
+          suggested_root_cause: string
+        }
+        Update: {
+          affected_tests?: string[]
+          category?: string
+          cluster_id?: string
+          first_seen?: string
+          last_seen?: string
+          occurrences?: number
+          representative_error?: string
+          suggested_root_cause?: string
+        }
+        Relationships: []
+      }
+      feedback_queue: {
+        Row: {
+          corrected: string
+          id: string
+          predicted: string
+          submitted_by: string
+          submitted_on: string
+          test_name: string
+        }
+        Insert: {
+          corrected: string
+          id?: string
+          predicted: string
+          submitted_by: string
+          submitted_on?: string
+          test_name: string
+        }
+        Update: {
+          corrected?: string
+          id?: string
+          predicted?: string
+          submitted_by?: string
+          submitted_on?: string
+          test_name?: string
+        }
+        Relationships: []
+      }
+      flake_trend: {
+        Row: {
+          day_label: string
+          flaky: number
+          id: string
+          ordinal: number
+          quarantined: number
+        }
+        Insert: {
+          day_label: string
+          flaky: number
+          id?: string
+          ordinal: number
+          quarantined: number
+        }
+        Update: {
+          day_label?: string
+          flaky?: number
+          id?: string
+          ordinal?: number
+          quarantined?: number
+        }
+        Relationships: []
+      }
+      flaky_tests: {
+        Row: {
+          category: string
+          confidence: number
+          created_at: string
+          failure_count: number
+          file_path: string
+          flake_score: number
+          framework: string
+          last_flagged_at: string
+          owner: string
+          score_trend: number[]
+          status: string
+          suite: string
+          team: string
+          test_id: string
+          test_name: string
+          total_runs: number
+        }
+        Insert: {
+          category?: string
+          confidence?: number
+          created_at?: string
+          failure_count?: number
+          file_path: string
+          flake_score?: number
+          framework: string
+          last_flagged_at?: string
+          owner: string
+          score_trend?: number[]
+          status?: string
+          suite: string
+          team: string
+          test_id: string
+          test_name: string
+          total_runs?: number
+        }
+        Update: {
+          category?: string
+          confidence?: number
+          created_at?: string
+          failure_count?: number
+          file_path?: string
+          flake_score?: number
+          framework?: string
+          last_flagged_at?: string
+          owner?: string
+          score_trend?: number[]
+          status?: string
+          suite?: string
+          team?: string
+          test_id?: string
+          test_name?: string
+          total_runs?: number
+        }
+        Relationships: []
+      }
+      model_features: {
+        Row: {
+          description: string
+          feature_name: string
+          id: string
+          importance: number
+          ordinal: number
+        }
+        Insert: {
+          description: string
+          feature_name: string
+          id?: string
+          importance: number
+          ordinal: number
+        }
+        Update: {
+          description?: string
+          feature_name?: string
+          id?: string
+          importance?: number
+          ordinal?: number
+        }
+        Relationships: []
+      }
+      model_metrics: {
+        Row: {
+          f1: number
+          fn: number
+          fp: number
+          id: number
+          last_trained: string
+          precision: number
+          quarantine_threshold: number
+          recall: number
+          tn: number
+          tp: number
+          version: string
+        }
+        Insert: {
+          f1: number
+          fn: number
+          fp: number
+          id: number
+          last_trained: string
+          precision: number
+          quarantine_threshold?: number
+          recall: number
+          tn: number
+          tp: number
+          version: string
+        }
+        Update: {
+          f1?: number
+          fn?: number
+          fp?: number
+          id?: number
+          last_trained?: string
+          precision?: number
+          quarantine_threshold?: number
+          recall?: number
+          tn?: number
+          tp?: number
+          version?: string
+        }
+        Relationships: []
+      }
+      retrain_log: {
+        Row: {
+          f1: number
+          id: string
+          note: string
+          trained_on: string
+          version: string
+        }
+        Insert: {
+          f1: number
+          id?: string
+          note: string
+          trained_on: string
+          version: string
+        }
+        Update: {
+          f1?: number
+          id?: string
+          note?: string
+          trained_on?: string
+          version?: string
+        }
+        Relationships: []
+      }
+      summary_metrics: {
+        Row: {
+          flaky_detected: number
+          flaky_pct: number
+          id: number
+          quarantined: number
+          tests_tracked: number
+          triage_hours_saved: number
+        }
+        Insert: {
+          flaky_detected: number
+          flaky_pct: number
+          id: number
+          quarantined: number
+          tests_tracked: number
+          triage_hours_saved: number
+        }
+        Update: {
+          flaky_detected?: number
+          flaky_pct?: number
+          id?: number
+          quarantined?: number
+          tests_tracked?: number
+          triage_hours_saved?: number
+        }
+        Relationships: []
+      }
+      test_runs: {
+        Row: {
+          ci_link: string
+          duration_ms: number
+          environment: string
+          id: string
+          ran_at: string
+          retry_count: number
+          run_id: string
+          status: string
+          test_id: string
+        }
+        Insert: {
+          ci_link: string
+          duration_ms: number
+          environment: string
+          id?: string
+          ran_at: string
+          retry_count?: number
+          run_id: string
+          status: string
+          test_id: string
+        }
+        Update: {
+          ci_link?: string
+          duration_ms?: number
+          environment?: string
+          id?: string
+          ran_at?: string
+          retry_count?: number
+          run_id?: string
+          status?: string
+          test_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "test_runs_test_id_fkey"
+            columns: ["test_id"]
+            isOneToOne: false
+            referencedRelation: "flaky_tests"
+            referencedColumns: ["test_id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
