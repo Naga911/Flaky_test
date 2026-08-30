@@ -137,7 +137,7 @@ export const SUMMARY = {
 };
 
 export function runHistory(testId: string): TestRunHistory[] {
-  const envs = ["ci-linux", "staging", "prod-canary", "ci-macos"];
+  const envs: string[] = ["ci-linux", "staging", "prod-canary", "ci-macos"];
   return Array.from({ length: 24 }, (_, i) => {
     const r = seeded(testId.length * 13 + i);
     const failed = r > 0.62;
