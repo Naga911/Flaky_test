@@ -1,23 +1,25 @@
 import { createFileRoute, Link, notFound } from "@tanstack/react-router";
-import { useState } from "react";
+import { useMutation, useQueryClient, useSuspenseQuery } from "@tanstack/react-query";
+import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
 import { AppShell, EmptyState, Panel } from "@/components/AppShell";
 import { DataTable, type Column } from "@/components/DataTable";
+import { RouteError, RoutePending } from "@/components/states";
 import { CategoryBadge, ScoreBar, Sparkline, StatusBadge, scoreColor } from "@/components/status";
+import { setTestStatus, submitFeedback } from "@/lib/flakewatch.functions";
+import { testDetailQuery } from "@/lib/queries";
 import {
   CATEGORY_LABEL,
-  TESTS,
   fmtDateTime,
-  runHistory,
   type FlakeStatus,
   type TestRunHistory,
-} from "@/lib/mock-data";
+} from "@/lib/flakewatch-types";
 
 export const Route = createFileRoute("/tests/$testId")({
-  loader: ({ params }) => {
-    const test = TESTS.find((t) => t.testId === params.testId);
-    if (!test) throw notFound();
-    return { test, runs: runHistory(test.testId) };
+  loader: async ({ context, params }) => {
+    const data = await context.queryClient.ensureQueryData(testDetailQuery(params.testId));
+    if (!data) throw notFound();
+    return data;
   },
   head: ({ params }) => {
     const name = params.testId.replace(/-/g, ".");
@@ -36,6 +38,20 @@ export const Route = createFileRoute("/tests/$testId")({
       ],
     };
   },
+  pendingComponent: () => <RoutePending title="Test detail" />,
+  errorComponent: ({ error, reset }) => (
+    <RouteError title="Test detail" error={error} onRetry={reset} />
+  ),
+  notFoundComponent: () => (
+    <AppShell title="Test not found" subtitle="This test is no longer tracked">
+      <EmptyState message="No test matches this id. It may have been removed from the tracked suite." />
+      <div className="mt-4 text-center">
+        <Link to="/" className="label-xs hover:text-foreground">
+          ← back to overview
+        </Link>
+      </div>
+    </AppShell>
+  ),
   component: TestDetail,
 });
 
@@ -66,8 +82,48 @@ const ROOT_CAUSES = [
 ];
 
 function TestDetail() {
-  const { test, runs } = Route.useLoaderData();
-  const [status, setStatus] = useState<FlakeStatus>(test.status);
+  const { testId } = Route.useParams();
+  const { data } = useSuspenseQuery(testDetailQuery(testId));
+  const queryClient = useQueryClient();
+  const setStatusFn = useServerFn(setTestStatus);
+  const submitFeedbackFn = useServerFn(submitFeedback);
+
+  const statusMutation = useMutation({
+    mutationFn: (status: FlakeStatus) => setStatusFn({ data: { testId, status } }),
+    onSuccess: (_res, status) => {
+      void queryClient.invalidateQueries({ queryKey: ["test", testId] });
+      void queryClient.invalidateQueries({ queryKey: ["overview"] });
+      toast.success(status === "quarantined" ? "Test quarantined" : "Marked as resolved");
+    },
+    onError: (e: Error) => toast.error("Could not update status", { description: e.message }),
+  });
+
+  const feedbackMutation = useMutation({
+    mutationFn: () =>
+      submitFeedbackFn({
+        data: {
+          testName: data!.test.testName,
+          predicted: data!.test.category,
+          corrected: "unknown" as const,
+          by: "you",
+        },
+      }),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ["model"] });
+      toast.success("Feedback queued for retraining");
+    },
+    onError: (e: Error) => toast.error("Could not send feedback", { description: e.message }),
+  });
+
+  if (!data) {
+    return (
+      <AppShell title="Test not found">
+        <EmptyState message="No test matches this id." />
+      </AppShell>
+    );
+  }
+
+  const { test, runs } = data;
 
   const columns: Array<Column<TestRunHistory>> = [
     {
@@ -94,7 +150,7 @@ function TestDetail() {
             r.status === "fail"
               ? "text-defect"
               : r.status === "skip"
-                ? "text-quarantined"
+                ? "text-muted-foreground"
                 : "text-stable"
           }`}
         >
@@ -139,6 +195,8 @@ function TestDetail() {
     },
   ];
 
+  const busy = statusMutation.isPending;
+
   return (
     <AppShell
       title={test.testName}
@@ -146,26 +204,23 @@ function TestDetail() {
       actions={
         <div className="flex flex-wrap gap-2">
           <button
-            onClick={() => {
-              setStatus("quarantined");
-              toast.success("Test quarantined", { description: test.testName });
-            }}
-            className="rounded-md border border-quarantined/40 bg-quarantined/10 px-3 py-1.5 font-mono text-xs text-quarantined transition-colors hover:bg-quarantined/20"
+            disabled={busy}
+            onClick={() => statusMutation.mutate("quarantined")}
+            className="rounded-md border border-quarantined/40 bg-quarantined/10 px-3 py-1.5 font-mono text-xs text-quarantined transition-colors hover:bg-quarantined/20 disabled:opacity-50"
           >
-            Quarantine
+            {busy ? "Saving…" : "Quarantine"}
           </button>
           <button
-            onClick={() => {
-              setStatus("resolved");
-              toast.success("Marked as resolved");
-            }}
-            className="rounded-md border border-stable/40 bg-stable/10 px-3 py-1.5 font-mono text-xs text-stable transition-colors hover:bg-stable/20"
+            disabled={busy}
+            onClick={() => statusMutation.mutate("resolved")}
+            className="rounded-md border border-stable/40 bg-stable/10 px-3 py-1.5 font-mono text-xs text-stable transition-colors hover:bg-stable/20 disabled:opacity-50"
           >
             Mark resolved
           </button>
           <button
-            onClick={() => toast("Feedback queued for retraining")}
-            className="rounded-md border border-border bg-secondary px-3 py-1.5 font-mono text-xs text-muted-foreground transition-colors hover:text-foreground"
+            disabled={feedbackMutation.isPending}
+            onClick={() => feedbackMutation.mutate()}
+            className="rounded-md border border-border bg-secondary px-3 py-1.5 font-mono text-xs text-muted-foreground transition-colors hover:text-foreground disabled:opacity-50"
           >
             False positive
           </button>
@@ -198,7 +253,7 @@ function TestDetail() {
               <div className="label-xs mt-1">14-day trend</div>
             </div>
             <div className="mt-4 flex flex-wrap items-center gap-2">
-              <StatusBadge status={status} />
+              <StatusBadge status={test.status} />
               <CategoryBadge category={test.category} />
             </div>
             <dl className="mt-4 space-y-1.5 font-mono text-[11px]">
@@ -217,6 +272,9 @@ function TestDetail() {
                 </dd>
               </div>
             </dl>
+            <div className="mt-4">
+              <ScoreBar score={test.flakeScore} />
+            </div>
           </div>
         </Panel>
 
@@ -283,7 +341,6 @@ function TestDetail() {
           />
         )}
       </Panel>
-
     </AppShell>
   );
 }
