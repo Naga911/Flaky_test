@@ -220,9 +220,14 @@ export async function fetchSettings(): Promise<AppSettings> {
   return { ...DEFAULT_SETTINGS, ...((res.data?.settings as Partial<AppSettings>) ?? {}) };
 }
 
-export async function saveSettings(patch: Partial<AppSettings>): Promise<AppSettings> {
+export async function saveSettings(
+  patch: { [K in keyof AppSettings]?: AppSettings[K] | undefined },
+): Promise<AppSettings> {
   const current = await fetchSettings();
-  const next = { ...current, ...patch };
+  const clean = Object.fromEntries(
+    Object.entries(patch).filter(([, v]) => v !== undefined),
+  ) as Partial<AppSettings>;
+  const next = { ...current, ...clean };
   const res = await db()
     .from("app_settings")
     .upsert({ id: 1, settings: next, updated_at: new Date().toISOString() })

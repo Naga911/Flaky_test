@@ -1,6 +1,6 @@
 import { cn } from "@/lib/utils";
-import type { FlakeCategory, FlakeStatus } from "@/lib/mock-data";
-import { CATEGORY_LABEL, STATUS_LABEL } from "@/lib/mock-data";
+import type { FlakeCategory, FlakeStatus } from "@/lib/flakewatch-types";
+import { CATEGORY_LABEL, STATUS_LABEL } from "@/lib/flakewatch-types";
 
 const statusClass: Record<FlakeStatus, string> = {
   active: "border-flaky/40 bg-flaky/10 text-flaky",

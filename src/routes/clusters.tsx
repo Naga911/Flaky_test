@@ -1,8 +1,11 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useState } from "react";
+import { useSuspenseQuery } from "@tanstack/react-query";
 import { AppShell, EmptyState } from "@/components/AppShell";
 import { CategoryBadge } from "@/components/status";
-import { CLUSTERS, TESTS, fmtDate } from "@/lib/mock-data";
+import { RouteError, RoutePending } from "@/components/states";
+import { clustersQuery } from "@/lib/queries";
+import { fmtDate } from "@/lib/flakewatch-types";
 
 export const Route = createFileRoute("/clusters")({
   head: () => ({
@@ -21,22 +24,35 @@ export const Route = createFileRoute("/clusters")({
       },
     ],
   }),
+  loader: ({ context }) => context.queryClient.ensureQueryData(clustersQuery),
   component: Clusters,
+  pendingComponent: () => <RoutePending title="Failure clusters" />,
+  errorComponent: ({ error, reset }) => (
+    <RouteError title="Failure clusters" error={error as Error} onRetry={reset} />
+  ),
+  notFoundComponent: () => (
+    <AppShell title="Failure clusters" subtitle="Nothing here">
+      <EmptyState message="No clusters found." />
+    </AppShell>
+  ),
 });
 
 function Clusters() {
-  const [open, setOpen] = useState<string | null>(CLUSTERS[0]?.clusterId ?? null);
+  const { data } = useSuspenseQuery(clustersQuery);
+  const clusters = data.clusters;
+  const tests = data.tests;
+  const [open, setOpen] = useState<string | null>(null);
 
   return (
     <AppShell
       title="Failure clusters"
       subtitle="Similar failures grouped by embedding similarity"
     >
-      {CLUSTERS.length === 0 ? (
+      {clusters.length === 0 ? (
         <EmptyState message="No clusters yet — clusters form once failures share an embedding neighbourhood." />
       ) : (
         <div className="grid gap-3 md:grid-cols-2">
-          {CLUSTERS.map((c) => {
+          {clusters.map((c) => {
             const isOpen = open === c.clusterId;
             return (
               <section
@@ -72,7 +88,7 @@ function Clusters() {
                     <div className="label-xs px-4 py-2">Member failures</div>
                     <ul className="divide-y divide-border/60">
                       {c.affectedTests.map((name) => {
-                        const t = TESTS.find((x) => x.testName === name);
+                        const t = tests.find((x) => x.testName === name);
                         return (
                           <li key={name} className="flex items-center justify-between px-4 py-2">
                             {t ? (
