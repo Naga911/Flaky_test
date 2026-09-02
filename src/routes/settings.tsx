@@ -1,7 +1,13 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { toast } from "sonner";
-import { AppShell, Panel } from "@/components/AppShell";
+import { useMutation, useQueryClient, useSuspenseQuery } from "@tanstack/react-query";
+import { useServerFn } from "@tanstack/react-start";
+import { AppShell, EmptyState, Panel } from "@/components/AppShell";
+import { RouteError, RoutePending } from "@/components/states";
+import { settingsQuery } from "@/lib/queries";
+import { updateSettings } from "@/lib/flakewatch.functions";
+import type { AppSettings } from "@/lib/flakewatch-types";
 
 export const Route = createFileRoute("/settings")({
   head: () => ({
@@ -18,7 +24,17 @@ export const Route = createFileRoute("/settings")({
       },
     ],
   }),
+  loader: ({ context }) => context.queryClient.ensureQueryData(settingsQuery),
   component: Settings,
+  pendingComponent: () => <RoutePending title="Settings" />,
+  errorComponent: ({ error, reset }) => (
+    <RouteError title="Settings" error={error as Error} onRetry={reset} />
+  ),
+  notFoundComponent: () => (
+    <AppShell title="Settings" subtitle="Nothing here">
+      <EmptyState message="Settings are unavailable." />
+    </AppShell>
+  ),
 });
 
 function Toggle({
@@ -26,22 +42,22 @@ function Toggle({
   onChange,
   label,
   hint,
+  disabled,
 }: {
   checked: boolean;
   onChange: (v: boolean) => void;
   label: string;
   hint: string;
+  disabled?: boolean;
 }) {
   return (
     <button
       type="button"
       role="switch"
       aria-checked={checked}
-      onClick={() => {
-        onChange(!checked);
-        toast.success(`${label} ${!checked ? "enabled" : "disabled"}`);
-      }}
-      className="flex w-full items-center justify-between gap-4 px-4 py-3 text-left"
+      disabled={disabled}
+      onClick={() => onChange(!checked)}
+      className="flex w-full items-center justify-between gap-4 px-4 py-3 text-left disabled:opacity-60"
     >
       <span>
         <span className="block text-sm">{label}</span>
@@ -63,16 +79,40 @@ function Toggle({
 }
 
 function Settings() {
-  const [webhooks, setWebhooks] = useState({
-    github: true,
-    jenkins: false,
-    gitlab: false,
+  const { data } = useSuspenseQuery(settingsQuery);
+  const qc = useQueryClient();
+  const [form, setForm] = useState<AppSettings>(data);
+
+  useEffect(() => {
+    setForm(data);
+  }, [data]);
+
+  const saveFn = useServerFn(updateSettings);
+  const save = useMutation({
+    mutationFn: (patch: Partial<AppSettings>) => saveFn({ data: patch }),
+    onSuccess: (_r, patch) => {
+      void qc.invalidateQueries({ queryKey: ["settings"] });
+      void qc.invalidateQueries({ queryKey: ["model"] });
+      toast.success("Settings saved", { description: Object.keys(patch).join(", ") });
+    },
+    onError: (err: Error, _patch) => {
+      setForm(data);
+      toast.error("Could not save settings", { description: err.message });
+    },
   });
-  const [notify, setNotify] = useState({ slack: true, email: false });
-  const [autoQuarantine, setAutoQuarantine] = useState(true);
+
+  function patch(next: Partial<AppSettings>) {
+    setForm((s) => ({ ...s, ...next }));
+    save.mutate(next);
+  }
+
+  const pending = save.isPending;
 
   return (
-    <AppShell title="Settings" subtitle="Integrations · notifications · policy">
+    <AppShell
+      title="Settings"
+      subtitle={pending ? "Saving…" : "Integrations · notifications · policy"}
+    >
       <div className="grid gap-3 lg:grid-cols-2">
         <Panel title="CI/CD webhooks">
           <div className="divide-y divide-border/60">
@@ -80,12 +120,18 @@ function Settings() {
               <label className="label-xs" htmlFor="gh-url">GitHub Actions</label>
               <input
                 id="gh-url"
-                defaultValue="https://api.flakewatch.dev/hooks/github/acme-app"
-                className="mt-1.5 h-8 w-full rounded-md border border-input bg-background px-2.5 font-mono text-xs outline-none focus:border-ring"
+                value={form.githubWebhook}
+                placeholder="https://api.flakewatch.dev/hooks/github/…"
+                onChange={(e) => setForm((s) => ({ ...s, githubWebhook: e.target.value }))}
+                onBlur={(e) => {
+                  if (e.target.value !== data.githubWebhook) patch({ githubWebhook: e.target.value });
+                }}
+                className="mt-1.5 h-8 w-full rounded-md border border-input bg-background px-2.5 font-mono text-xs outline-none placeholder:text-muted-foreground focus:border-ring"
               />
               <Toggle
-                checked={webhooks.github}
-                onChange={(v) => setWebhooks((s) => ({ ...s, github: v }))}
+                checked={form.githubEnabled}
+                disabled={pending}
+                onChange={(v) => patch({ githubEnabled: v })}
                 label="Ingest GitHub Actions runs"
                 hint="POST junit + step events after each workflow"
               />
@@ -94,12 +140,18 @@ function Settings() {
               <label className="label-xs" htmlFor="jk-url">Jenkins</label>
               <input
                 id="jk-url"
+                value={form.jenkinsWebhook}
                 placeholder="https://api.flakewatch.dev/hooks/jenkins/…"
+                onChange={(e) => setForm((s) => ({ ...s, jenkinsWebhook: e.target.value }))}
+                onBlur={(e) => {
+                  if (e.target.value !== data.jenkinsWebhook) patch({ jenkinsWebhook: e.target.value });
+                }}
                 className="mt-1.5 h-8 w-full rounded-md border border-input bg-background px-2.5 font-mono text-xs outline-none placeholder:text-muted-foreground focus:border-ring"
               />
               <Toggle
-                checked={webhooks.jenkins}
-                onChange={(v) => setWebhooks((s) => ({ ...s, jenkins: v }))}
+                checked={form.jenkinsEnabled}
+                disabled={pending}
+                onChange={(v) => patch({ jenkinsEnabled: v })}
                 label="Ingest Jenkins runs"
                 hint="Requires the flakewatch Jenkins plugin"
               />
@@ -108,12 +160,18 @@ function Settings() {
               <label className="label-xs" htmlFor="gl-url">GitLab CI</label>
               <input
                 id="gl-url"
+                value={form.gitlabWebhook}
                 placeholder="https://api.flakewatch.dev/hooks/gitlab/…"
+                onChange={(e) => setForm((s) => ({ ...s, gitlabWebhook: e.target.value }))}
+                onBlur={(e) => {
+                  if (e.target.value !== data.gitlabWebhook) patch({ gitlabWebhook: e.target.value });
+                }}
                 className="mt-1.5 h-8 w-full rounded-md border border-input bg-background px-2.5 font-mono text-xs outline-none placeholder:text-muted-foreground focus:border-ring"
               />
               <Toggle
-                checked={webhooks.gitlab}
-                onChange={(v) => setWebhooks((s) => ({ ...s, gitlab: v }))}
+                checked={form.gitlabEnabled}
+                disabled={pending}
+                onChange={(v) => patch({ gitlabEnabled: v })}
                 label="Ingest GitLab CI runs"
                 hint="Group-level webhook, pipelines scope"
               />
@@ -125,16 +183,18 @@ function Settings() {
           <Panel title="Notifications">
             <div className="divide-y divide-border/60">
               <Toggle
-                checked={notify.slack}
-                onChange={(v) => setNotify((s) => ({ ...s, slack: v }))}
+                checked={form.slackEnabled}
+                disabled={pending}
+                onChange={(v) => patch({ slackEnabled: v })}
                 label="Slack alert on threshold cross"
-                hint="#qa-flakes · fires when score ≥ threshold"
+                hint={`${form.slackChannel || "#qa-flakes"} · fires when score ≥ threshold`}
               />
               <Toggle
-                checked={notify.email}
-                onChange={(v) => setNotify((s) => ({ ...s, email: v }))}
+                checked={form.emailEnabled}
+                disabled={pending}
+                onChange={(v) => patch({ emailEnabled: v })}
                 label="Email digest"
-                hint="Daily 09:00 UTC to team owners"
+                hint={`Daily 09:00 UTC to ${form.notifyEmail || "team owners"}`}
               />
             </div>
           </Panel>
@@ -142,10 +202,11 @@ function Settings() {
           <Panel title="Auto-quarantine policy">
             <div className="divide-y divide-border/60">
               <Toggle
-                checked={autoQuarantine}
-                onChange={setAutoQuarantine}
+                checked={form.autoQuarantine}
+                disabled={pending}
+                onChange={(v) => patch({ autoQuarantine: v })}
                 label="Auto-quarantine flaky tests"
-                hint="Skip in CI when score stays ≥ 70 for 3 days"
+                hint={`Skip in CI when score stays ≥ ${form.quarantineThreshold} for 3 days`}
               />
             </div>
             <div className="border-t border-border px-4 py-3">
